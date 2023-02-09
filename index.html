@@ -1593,29 +1593,55 @@ area (<span class="math inline">\(A\)</span> [e.g. in <span class="math inline"
 <div id="question-2" class="section level2">
 <h2>Question 2</h2>
 <p>What is the grain and extent of the Fort Collins raster? (2 pts)</p>
+<pre class="r"><code># load data
+nlcd &lt;- terra::rast(&quot;../data/fort_collins.tif&quot;)
+# check it
+terra::crs(nlcd)
+terra::xres(nlcd)
+terra::yres(nlcd)
+terra::ext(nlcd)
+terra::expanse(nlcd) / 10000 # ha
+# x
+x_temp &lt;- (terra::ext(nlcd)[2] - terra::ext(nlcd)[1]) / 1000 %&gt;% round(1)
+# y
+y_temp &lt;- (terra::ext(nlcd)[4] - terra::ext(nlcd)[3]) / 1000</code></pre>
+<p><span style="color: teal;"> The NLCD raster of Fort Collins has a
+grain size of <strong>30m x 30m</strong> with an extent of
+<strong>25.6km x 13.3km</strong> that covers an expanse of
+<strong>34,122.6 ha</strong>. </span></p>
 </div>
 <div id="question-3" class="section level2">
 <h2>Question 3</h2>
 <p>Generate a bar plot showing the proportion of landcover types in the
 Fort Collins area. Which is most prevalent? Which is least prevalent?
 Use ggplot for the plotting. (6.5 pts)</p>
+<pre class="r"><code># lots of ways to do this but could use the landscape metrics pacake to calculate the percent of land for each type of class
+# lsm_c_pland()</code></pre>
 </div>
 <div id="question-4" class="section level2">
 <h2>Question 4</h2>
 <p>Calculate the number of evergreen forest patches in the greater Fort
 Collins region using: 4-neighborhood rule and the 8-neighborhood rule.
 (2.5 pts)</p>
+<pre class="r"><code># calculate patch metrics then summarize to landscape
+# or just do class based metric to get it
+# lsm_c_np</code></pre>
 </div>
 <div id="question-5" class="section level2">
 <h2>Question 5</h2>
 <p>What is the mean pasture/hay patch size in hectare and km2 (using the
 4-neighborhood rule): (2.5 pts)</p>
+<pre class="r"><code># native units is ha
+# lsm_c_area_mn()</code></pre>
 </div>
 <div id="question-6" class="section level2">
 <h2>Question 6</h2>
 <p>Of the open water patch-based metrics (using the 4-neighborhood
 rule), which have the strongest negative correlations? Include the
 top-three pairings. (3 pts)</p>
+<pre class="r"><code># list the top 3 most negative
+# write out what these are so that we know what the strongest is
+# lsm_p_frac()</code></pre>
 </div>
 <div id="question-7" class="section level2">
 <h2>Question 7</h2>
@@ -1623,6 +1649,7 @@ top-three pairings. (3 pts)</p>
 water patches (using the 4-neighborhood rule) and grain size. Use 30m,
 60m, 120m, 240, and 600m grain resolution. Use the modal rule and
 generate your plot using ggplot. (10 pts)</p>
+<pre class="r"><code># use different aggregations</code></pre>
 <hr />
 </div>
 </div>
@@ -1634,6 +1661,8 @@ outlined on lines 44 to 51. Calculate the following metrics:</p>
 <h2>Question 8</h2>
 <p>Number of agriculture patches in the greater Fort Collins region
 using: 4-neighborhood rule &amp; 8-neighborhood rule: (4.5 pts)</p>
+<pre class="r"><code># see practice code
+# condense 15 cover types down to 6 cover types</code></pre>
 </div>
 <div id="question-9" class="section level2">
 <h2>Question 9</h2>
@@ -1657,14 +1686,17 @@ instance, what does a “high” value of shannon evenness indicate?</p>
 <div id="question-11" class="section level2">
 <h2>Question 11</h2>
 <p>Land-cover richness: (2 pts)</p>
+<pre class="r"><code># landscape level</code></pre>
 </div>
 <div id="question-12" class="section level2">
 <h2>Question 12</h2>
 <p>Shannon diversity:(3.5 pts)</p>
+<pre class="r"><code># landscape level</code></pre>
 </div>
 <div id="question-13" class="section level2">
 <h2>Question 13</h2>
 <p>Shannon evenness: (3.5 pts)</p>
+<pre class="r"><code># landscape level</code></pre>
 </div>
 </div>
 

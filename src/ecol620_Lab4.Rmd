@@ -48,6 +48,7 @@ library(USAboundaries)
 library(sf)
 library(terra)
 library(landscapemetrics) #for patch, class, and landscape metrics
+library(FedData) #for nlcd color pallette
 # set seed
 set.seed(11)
 ```
@@ -78,6 +79,33 @@ Briefly describe (1-2 sentences) what each of the following functions achieve. A
 # class-based metrics are calculated at the class level (individual class)
 # landscape scale combines all of the classes (ignores cover type)
 list_lsm() %>% kableExtra::kable(format = "html") %>% kableExtra::kable_styling(font_size = 11)
+
+landcover <- levels(nlcd)[[1]]
+
+hey_landcovers <- c(
+  "open water"
+  , "developed, open space"
+  , "developed, low intensity"
+  , "developed, high intensity"
+  , "barren land"
+  , "deciduous forest"
+  , "evergreen forest"
+  , "mixed forest"
+  , "shrub/scrub"
+  , "grassland herbaceous"
+  , "pasture/hay"
+  , "cultivated crops"
+  , "woody wetlands"
+  , "emergent herbaceous wetlands"
+) %>% stringr::str_to_title()
+
+landcover[,"landcover"] <- hey_landcovers
+
+per_landcover_type$class_name <- hey_landcovers
+
+per_landcover_type$class_name <- factor(per_landcover_type$class_name, levels = hey_landcovers)
+
+
 ```
 
 ---
@@ -88,15 +116,113 @@ list_lsm() %>% kableExtra::kable(format = "html") %>% kableExtra::kable_styling(
 
 What is the grain and extent of the Fort Collins raster? (2 pts)
 
-```{r}
+```{r, results='hide'}
+# load data
+nlcd <- terra::rast("../data/fort_collins.tif")
+# check it
+terra::crs(nlcd)
+terra::xres(nlcd)
+terra::yres(nlcd)
+terra::ext(nlcd)
+terra::expanse(nlcd) / 10000 # ha
+# x
+x_temp <- (terra::ext(nlcd)[2] - terra::ext(nlcd)[1]) / 1000
+  # ncol(nlcd) * terra::xres(nlcd) / 1000
+# y
+y_temp <- (terra::ext(nlcd)[4] - terra::ext(nlcd)[3]) / 1000
+  # nrow(nlcd) * terra::yres(nlcd) / 1000
+```
 
+<span style="color: teal;">
+The NLCD raster of Fort Collins has a grain size of **`r paste0(terra::xres(nlcd), "m x ", terra::yres(nlcd), "m")`** with an extent of **`r paste0(round(x_temp,1), "km x ", round(y_temp, 1), "km")`** and covers an expanse of **`r (terra::expanse(nlcd) / 10000) %>% scales::comma(accuracy = 0.1)` ha**.
+</span>
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+remove(list = ls()[grep("_temp",ls())])
+gc()
 ```
 
 ## Question 3 
 
 Generate a bar plot showing the proportion of landcover types in the Fort Collins area. Which is most prevalent? Which is least prevalent? Use ggplot for the plotting. (6.5 pts)
 
+### NLCD classification functions
+
 ```{r}
+# class factor function to return ordered factor from class integer
+nlcd_class_fact_fn <- function(class_int){
+  return(ordered(class_int
+    , levels = FedData::pal_nlcd()$ID
+    , labels = FedData::pal_nlcd()$Class
+    )
+  )
+} 
+# type factor function to return ordered factor from class integer
+nlcd_type_fact_fn <- function(class_int){
+  return(ordered(class_int
+    , levels = c(11,12,21,22,23,24,31,41,42,43,51,52,71,72,73,74,81,82,90,95)
+    , labels = c(
+      "Water"
+      , "Water"
+      , "Developed"
+      , "Developed"
+      , "Developed"
+      , "Developed"
+      , "Barren"
+      , "Forest"
+      , "Forest"
+      , "Forest"
+      , "Shrubland"
+      , "Shrubland"
+      , "Herbaceous"
+      , "Herbaceous"
+      , "Herbaceous"
+      , "Herbaceous"
+      , "Planted/Cultivated"
+      , "Planted/Cultivated"
+      , "Wetlands"
+      , "Wetlands"
+      )
+    )
+  )
+}
+# create color pallette based on classes in data
+fc_color_pal <- FedData::pal_nlcd() %>% 
+  dplyr::filter(ID %in% unique(nlcd)[[1]]) %>% 
+  dplyr::pull(Color)
+```
+
+### plot
+
+```{r}
+# aggregate percent land by class and apply functions
+landscapemetrics::lsm_c_pland(nlcd) %>% 
+  dplyr::mutate(
+    nlcd_class = nlcd_class_fact_fn(class)
+    , nlcd_type = nlcd_type_fact_fn(class)
+  ) %>%
+  ggplot(.) +
+    geom_col(mapping = aes(x = value, y = reorder(nlcd_class, -class), fill = nlcd_class), width = 0.7) +
+    scale_fill_manual(values = fc_color_pal) +
+    geom_text(
+      mapping = aes(
+        x = value
+        , y = reorder(nlcd_class, -class)
+        , label = scales::percent(value, scale = 1, accuracy = .1)
+      )
+      , color = "black", size = 2.5
+      , vjust = -0.2
+      , hjust = -0.1
+    ) +
+    scale_x_continuous(expand = expansion(mult = c(0, .1)), labels = scales::percent_format(scale = 1)) +
+    labs(
+        x = "Percent Land (%)"
+        , y = "NLCD Class"
+    ) +
+    theme_bw() +
+    theme(
+      legend.position = "none"
+    )
 
 ```
 
@@ -105,7 +231,9 @@ Generate a bar plot showing the proportion of landcover types in the Fort Collin
 Calculate the number of evergreen forest patches in the greater Fort Collins region using: 4-neighborhood rule and the 8-neighborhood rule. (2.5 pts) 
 
 ```{r}
-
+# calculate patch metrics then summarize to landscape
+# or just do class based metric to get it
+# lsm_c_np
 ```
 
 ## Question 5
@@ -113,7 +241,8 @@ Calculate the number of evergreen forest patches in the greater Fort Collins reg
 What is the mean pasture/hay patch size in hectare and km2 (using the 4-neighborhood rule): (2.5 pts) 
 
 ```{r}
-
+# native units is ha
+# lsm_c_area_mn()
 ```
 
 ## Question 6
@@ -121,7 +250,9 @@ What is the mean pasture/hay patch size in hectare and km2 (using the 4-neighbor
 Of the open water patch-based metrics (using the 4-neighborhood rule), which have the strongest negative correlations? Include the top-three pairings. (3 pts) 
 
 ```{r}
-
+# list the top 3 most negative
+# write out what these are so that we know what the strongest is
+# lsm_p_frac()
 ```
 
 
@@ -130,7 +261,7 @@ Of the open water patch-based metrics (using the 4-neighborhood rule), which hav
 Generate a plot showing the relationship between the number of open water patches (using the 4-neighborhood rule) and grain size. Use 30m, 60m, 120m, 240, and 600m grain resolution. Use the modal rule and generate your plot using ggplot. (10 pts)
 
 ```{r}
-
+# use different aggregations
 ```
 
 ---
@@ -144,7 +275,8 @@ For questions 8-10, reclassify “fort_collins.tif” to the scheme outlined on 
 Number of agriculture patches in the greater Fort Collins region using: 4-neighborhood rule & 8-neighborhood rule: (4.5 pts) 
 
 ```{r}
-
+# see practice code
+# condense 15 cover types down to 6 cover types
 ```
 
 
@@ -175,7 +307,7 @@ Calculate the following landscape metrics (for the original fort_collins.tif, i.
 Land-cover richness: (2 pts)
 
 ```{r}
-
+# landscape level
 ```
 
 ## Question 12
@@ -183,7 +315,7 @@ Land-cover richness: (2 pts)
 Shannon diversity:(3.5 pts)
 
 ```{r}
-
+# landscape level
 ```
 
 ## Question 13
@@ -191,6 +323,6 @@ Shannon diversity:(3.5 pts)
 Shannon evenness: (3.5 pts)
 
 ```{r}
-
+# landscape level
 ```
 
