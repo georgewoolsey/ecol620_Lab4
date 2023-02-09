@@ -1,0 +1,127 @@
+---
+title: "Lab 4 - Quantifying Land-Cover Pattern"
+author: "ECOL 620 - Applications in Landscape Ecology"
+date: "Spring 2023"
+output:
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Rules
+1. Using the provided R Markdown template, answer all questions and show your R code where necessary. Note, some questions are just plain text written answers.
+2. Complete your assignment using the R markdown file and submit individual assignments to Canvas. Knit your script and submit an .html file on Canvas. Please use  the following naming convention: lab4_firstname_lastname.html (ex. lab4_kyle_horton.html).
+
+###################################################################################################
+
+## Question 1
+
+Briefly describe (1-2 sentences) what each of the following functions achieve. All of these functions are seen throughout the Lab #3 example code. (1 pt each). 
+
+* `calculate_lsm()`
+* `lsm_c_np()`
+* `show_cores()`
+* `lsm_l_shei`
+* `lsm_l_pd()`
+
+
+## Question 2 
+What is the grain and extent of the Fort Collins raster? (2 pts)
+
+```{r}
+
+```
+
+## Question 3 
+Generate a bar plot showing the proportion of landcover types in the Fort Collins area. Which is most prevalent? Which is least prevalent? Use ggplot for the plotting. (6.5 pts)
+
+```{r}
+
+```
+
+## Question 4
+Calculate the number of evergreen forest patches in the greater Fort Collins region using: 4-neighborhood rule ________ 8-neighborhood rule: _________ (2.5 pts) 
+
+```{r}
+
+```
+
+## Question 5
+What is the mean pasture/hay patch size in hectare and km2 (using the 4-neighborhood rule): (2.5 pts) 
+
+```{r}
+
+```
+
+## Question 6
+Of the open water patch-based metrics (using the 4-neighborhood rule), which have the strongest negative correlations? Include the top-three pairings. (3 pts) 
+
+```{r}
+
+```
+
+
+## Question 7
+Generate a plot showing the relationship between the number of open water patches (using the 4-neighborhood rule) and grain size. Use 30m, 60m, 120m, 240, and 600m grain resolution. Use the modal rule and generate your plot using ggplot. (10 pts)
+
+```{r}
+
+```
+
+###################################################################################################
+\
+\
+
+##### For questions 8-10, reclassify “fort_collins.tif” to the scheme outlined on lines 44 to 51. Calculate the following metrics: 
+
+## Question 8
+Number of agriculture patches in the greater Fort Collins region using: 4-neighborhood rule & 8-neighborhood rule: (4.5 pts) 
+
+```{r}
+
+```
+
+
+## Question 9
+Calculate the mean Euclidean nearest neighbor distance of agriculture patches (Using the 4-neighborhood rule): (3 pts)
+
+```{r}
+
+```
+
+## Question 10
+Include a plot (using the landscape metrics package, e.g., show_lsm) of developed and open water landcover types showing the area in hectares (Using the 4-neighborhood rule). (2 pts)
+
+```{r}
+
+```
+
+###################################################################################################
+\
+\
+
+##### Calculate the following landscape metrics (for the original fort_collins.tif, i.e., before reclassification). In addition to quantifying the values, briefly describe the meaning of the values. For instance, what does a “high” value of shannon evenness indicate? 
+
+## Question 11
+Land-cover richness: (2 pts)
+
+```{r}
+
+```
+
+## Question 12
+Shannon diversity:(3.5 pts)
+
+```{r}
+
+```
+
+## Question 13
+Shannon evenness: (3.5 pts)
+
+```{r}
+
+```
+

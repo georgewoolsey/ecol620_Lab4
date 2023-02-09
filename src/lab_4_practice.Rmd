@@ -1,0 +1,263 @@
+---
+title: "Lab 4 - Quantifying Land-Cover Pattern"
+author: "ECOL 620 - Applications in Landscape Ecology"
+date: "Spring 2023"
+output:
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This lab highlights the use of the terra and landscapemetrics packages for the quantification of patch, class, and landscape-level metrics. Rasters are an instrumental data format for quantifying landscapes. Here, we will use a land-cover raster  from the 2011 National Land Cover Database (NLCD). 
+
+```{r}
+#load packages
+library(terra)            #for raster data; version 2.6-7 used
+library(landscapemetrics)  #for patch, class, and landscape metrics
+library(tidyverse)
+```
+
+## Land-cover at different scales
+
+We first load the raster layer being considered and take a look at its attributes, including the thematic resolution being considered, the grain, and extent. In this situation, we reclassified the NLCD layer to simplify the thematic resolution down to six categories: forest, developed, agriculture (rowcrops), grassland, open, and wetlands.
+
+### load landscape data
+```{r}
+nlcd = rast("/Users/kylehorton/Desktop/ECOL_620/Course_materials/Week4/Lab4/data_for_lab4/florida_nlcd.tif")
+
+```
+
+### grain and extent
+
+The resolution is 30 x 30 m and the extent covers approximately 4 x 4 km. With the levels function, we find that initially R did not treat the land-cover data as factors, so we reformat the raster layer to a factor.
+```{r}
+res(nlcd)
+ext(nlcd)
+
+#nlcd categories
+unique(nlcd)
+```
+
+
+### land-cover type (nlcd original categories)
+* 1 = forest:41-43
+* 2 = developed:21-24
+* 3 = agriculture:81,82
+* 4 = herbaceous:71-74
+* 5 = open:31, 51-52
+* 6 = wetland:90,95
+* 7 = water:11-12
+
+### convert land-cover integers to factor levels (categories)
+
+We want to make sure R is treating the land-cover categories as factors (`as.factor` is needed). Once this is done, they are only labeled as integer values. For mapping, we may want to label the integers based on the landcover type classifications.
+```{r}
+nlcd = as.factor(nlcd)
+levels(nlcd)
+```
+
+### add names of categories to raster layer
+```{r}
+land_cover = levels(nlcd)[[1]]
+land_cover[,"landcover"] = c("Forest","Developed", "Agriculture","Grassland","Open","Wetland")
+levels(nlcd) = land_cover[,2:3]
+```
+
+### plot the raster using `ggplot`
+
+`ggplot` does not natively plot raster formats. We have to convert the raster to a dataframe to ready it for plotting (hence the need for `as.data.frame(nlcd, xy=T)`)
+```{r}
+nlcd_for_ggplot = as.data.frame(nlcd, xy=T)
+
+land_col = c("#ddd75c", "#de3021",  "#336338", "#6cdd43", "#7c7c7b","#4f6d9f")
+
+ggplot() + 
+  geom_raster(data=nlcd_for_ggplot, aes(x=x, y=y, fill=landcover)) +
+  labs(y = "Northing (m)", x="Easting (m)", fill="Landcover\nclass")+
+  scale_fill_manual(values = land_col)+
+  theme_bw()
+
+```
+
+### create a reclassification matrix
+
+In ecology there has long been a focus on understanding variation among habitat patches. Classic examples include forest fragments, grassland meadows that are interspersed by forest, or wetland patches. 
+
+To quantify characteristics of patches, the first step is to delineate the patches themselves. This step is not trivial and can have important impacts on the conclu- sions regarding the effects of patch variation on ecological patterns and processes. For vector maps, typically patches are delineated by the user (e.g., hand digitizing aerial photographs). However, for raster-based maps, we typically automate patch delineation, using one of two common rules: the four-neighbor rule and the eight-neighbor rule.
+```{r}
+nlcd= as.factor(nlcd)
+nlcd.cat = unique(nlcd)
+nlcd.cat.for = c(1,0,0,0,0,0)
+```
+
+```{r}
+reclass.mat = cbind(nlcd.cat,nlcd.cat.for)
+reclass.mat #first col: original; second: change to
+```
+
+# forest binary layer from reclassification matrix
+
+We first summarize forest cover in the landscape from a patch perspective. Common patch-level metrics include patch size, perimeter–area ratio, core area, and patch isolation. Patch size and isolation are common metrics used in island biogeography, metapopulation biology, and metacommunity ecology. Patch size is important because it can predict local extinction probabilities in patches, it may be related to resource amount and variation, and it may influence immigration rates and habitat selection.
+```{r}
+reclass.mat$label=as.numeric(reclass.mat$label)
+nlcd.forest = classify(nlcd, reclass.mat)
+nlcd.forest = as.factor(nlcd.forest)
+forest = levels(nlcd.forest)[[1]]
+forest[,"landcover"] = c("Forest", "Other")
+levels(nlcd.forest) = forest[,2:3]
+
+forest_for_ggplot = as.data.frame(nlcd.forest, xy=T)
+land_col = c("#336338", "#7c7c7b")
+
+ggplot() + 
+  geom_raster(data=forest_for_ggplot, aes(x=x, y=y, fill=landcover)) +
+  labs(y = "Northing (m)", x="Easting (m)", fill="Landcover\nclass")+
+  scale_fill_manual(values = land_col)+
+  theme_bw()
+```
+
+####################################################################################
+# Patch-level quantification
+
+### 4-neighbor rule
+```{r}
+four_patch_rule=lsm_p_area(nlcd.forest, directions = 4) #makes a dataframe of all the patches and their areas (in hectares, by default). #lsm_p_area "lsm" = landscape metrics,  "_p_" denotes patch metrics, "area" denotes the metric of interest
+head(four_patch_rule) #0 is forest, #1 is other classes
+
+```
+What's the largest patch? 
+```{r}
+max(lsm_p_area(nlcd.forest, directions = 4)$value) 
+#Here, we see that the largest patch, 922.86 is the largest patch. It's covertype 0, meaning forest.
+```
+
+
+### 8-neighbor rule
+```{r}
+lsm_p_area(nlcd.forest, directions = 8) #makes a dataframe of all the patches and their areas (in hectares, by default)
+```
+
+```{r}
+lsm_c_np(nlcd.forest, directions = 8) #number of patches per landcover class. Technically, this is a class metric, because it summarizes at the class level.
+```
+
+```{r}
+lsm_c_np(nlcd, directions = 8) #number of patches per landcover class
+```
+
+## Other patch-level metrics:
+
+```{r}
+patch_metrics=calculate_lsm(nlcd.forest, level = "patch", directions = 8,full_name=T) #this yields all the patch metrics
+head(patch_metrics)
+```
+
+```{r}
+show_patches(nlcd.forest, class = "all", labels = FALSE,direction=8)
+```
+
+### plot core area
+```{r}
+show_cores(nlcd.forest, class = c(0:1), labels = F, edge_depth = 3)
+```
+
+### deeper edge depth
+```{r}
+show_cores(nlcd.forest, class = c(0:1), labels = FALSE, edge_depth = 5)
+```
+
+### plot area of patches
+```{r}
+show_lsm(nlcd.forest, what = "lsm_p_area", direction=8, class = "1", label_lsm = F, labels = F)
+```
+
+### plot Euclidean Nearest-Neighbor Distance (Aggregation metric)
+```{r}
+show_lsm(nlcd.forest, what = "lsm_p_enn", direction=8, class = "1", label_lsm = F, labels = F)
+```
+
+```{r}
+#correlation matrix
+show_correlation(data = patch_metrics[,1:6], method = "pearson", label=T)
+```
+
+##################################################################
+# Class-level quantification
+
+We can also easily quantify patterns of land cover at the class-level. In this case, we can focus on metrics that do not require delineating patches, such as forest area, or we can get summary, patch-based metrics for the entire landscape (such as the standard deviation of patch sizes, as shown above). In any class-level metric, the metrics describe a focal land-cover class and most do not explicitly account for other land-cover types (see landscape-level metrics below). 
+
+### calculation based on nlcd layer (all land-cover types)
+```{r}
+class_metrics=calculate_lsm(nlcd, level = "class", directions = 8, full_name=T) #this yields all the class metrics
+head(class_metrics)
+```
+
+### subset on class metrics for the forest cover type 
+```{r}
+forest_class_metrics=class_metrics[class_metrics$class==1,] #class metrics for class "1", i.e., forest
+head(forest_class_metrics)
+```
+
+
+### plot core area
+```{r}
+show_cores(nlcd, class = c(1:6), labels = FALSE, edge_depth = 1)
+```
+
+##################################################################
+# Landscape-level quantification
+
+Landscape metrics that can readily be derived from class-level metrics include the number of patches (NP), patch density (PD), largest patch index (LPI), and total edge (TE). At the landscape-level, these metrics are typically summing values for class-level metrics (e.g., NP, PD, TE), or taking the maximum value (LPI). Land-cover richness and diversity are frequently considered. Landcover richness is simply the number of land-cover types in an area of interest. Shannon’s diversity, D, and evenness, E, indices are other popular measures. 
+
+### some summary metrics derived from class-level metrics
+
+### number of landscape patches
+```{r}
+lsm_l_np(nlcd, directions = 4)
+```
+
+### patch density 
+```{r}
+lsm_l_pd(nlcd)
+```
+
+### largest patch index
+```{r}
+lsm_l_lpi(nlcd)
+```
+
+### total edge
+```{r}
+lsm_l_te(nlcd)
+```
+
+### some diversity-related metrics
+
+### richness
+```{r}
+richness = length(unique(values(nlcd)))
+richness
+```
+
+### diversity,D, and evenness, E
+```{r}
+table(values(nlcd))
+
+C = table(values(nlcd))
+P = C / sum(C)
+D = -sum(P * log(P))
+E = D/log(length(C))
+```
+
+### compare the metrics above (namely D and E) with the following metrics
+```{r}
+lsm_l_shei(nlcd)
+print(E) #shannon's evenness index
+```
+
+```{r}
+lsm_l_shdi(nlcd)
+print(D) #shannon's diversity index
+```
