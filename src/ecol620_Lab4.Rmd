@@ -124,7 +124,7 @@ terra::crs(nlcd)
 terra::xres(nlcd)
 terra::yres(nlcd)
 terra::ext(nlcd)
-terra::expanse(nlcd) / 10000 # ha
+# terra::expanse(nlcd) / 10000 # ha
 # x
 x_temp <- (terra::ext(nlcd)[2] - terra::ext(nlcd)[1]) / 1000
   # ncol(nlcd) * terra::xres(nlcd) / 1000
@@ -141,10 +141,6 @@ The NLCD raster of Fort Collins has a grain size of **`r paste0(terra::xres(nlcd
 remove(list = ls()[grep("_temp",ls())])
 gc()
 ```
-
-## Question 3 
-
-Generate a bar plot showing the proportion of landcover types in the Fort Collins area. Which is most prevalent? Which is least prevalent? Use ggplot for the plotting. (6.5 pts)
 
 ### NLCD classification functions
 
@@ -192,16 +188,19 @@ fc_color_pal <- FedData::pal_nlcd() %>%
   dplyr::pull(Color)
 ```
 
-### plot
+## Question 3 
+
+Generate a bar plot showing the proportion of landcover types in the Fort Collins area. Which is most prevalent? Which is least prevalent? Use ggplot for the plotting. (6.5 pts)
 
 ```{r}
 # aggregate percent land by class and apply functions
-landscapemetrics::lsm_c_pland(nlcd) %>% 
+nlcd_c_pland_temp <- landscapemetrics::lsm_c_pland(nlcd) %>% 
   dplyr::mutate(
     nlcd_class = nlcd_class_fact_fn(class)
     , nlcd_type = nlcd_type_fact_fn(class)
-  ) %>%
-  ggplot(.) +
+  )
+# plot
+  ggplot(nlcd_c_pland_temp) +
     geom_col(mapping = aes(x = value, y = reorder(nlcd_class, -class), fill = nlcd_class), width = 0.7) +
     scale_fill_manual(values = fc_color_pal) +
     geom_text(
@@ -211,7 +210,6 @@ landscapemetrics::lsm_c_pland(nlcd) %>%
         , label = scales::percent(value, scale = 1, accuracy = .1)
       )
       , color = "black", size = 2.5
-      , vjust = -0.2
       , hjust = -0.1
     ) +
     scale_x_continuous(expand = expansion(mult = c(0, .1)), labels = scales::percent_format(scale = 1)) +
@@ -222,19 +220,46 @@ landscapemetrics::lsm_c_pland(nlcd) %>%
     theme_bw() +
     theme(
       legend.position = "none"
+      , axis.title = element_text(size = 8)
+      , axis.text.x = element_text(size = 8)
+      , panel.grid.major.y = element_blank()
     )
 
 ```
+
+<span style="color: teal;">
+Based on the NLCD raster of Fort Collins, the landcover class that covers the largest area is **`r nlcd_c_pland_temp %>%  dplyr::slice_max(order_by = value, n = 1) %>% dplyr::pull(nlcd_class) %>% as.character()`** which covers **`r nlcd_c_pland_temp %>%  dplyr::slice_max(order_by = value, n = 1) %>% dplyr::pull(value) %>% scales::percent(scale = 1)`** of the raster extent. The landcover class that covers the smallest area is **`r nlcd_c_pland_temp %>%  dplyr::slice_min(order_by = value, n = 1) %>% dplyr::pull(nlcd_class) %>% as.character()`** which covers **`r nlcd_c_pland_temp %>%  dplyr::slice_min(order_by = value, n = 1) %>% dplyr::pull(value) %>% scales::percent(scale = 1, accuracy = 0.01)`** of the raster extent.
+</span>
 
 ## Question 4
 
 Calculate the number of evergreen forest patches in the greater Fort Collins region using: 4-neighborhood rule and the 8-neighborhood rule. (2.5 pts) 
 
 ```{r}
-# calculate patch metrics then summarize to landscape
-# or just do class based metric to get it
-# lsm_c_np
+get_np_fn <- function(my_dir_rule, my_class_str) {
+  return(
+  landscapemetrics::lsm_c_np(nlcd, directions = my_dir_rule) %>% 
+  dplyr::mutate(
+    nlcd_class = nlcd_class_fact_fn(class)
+    , nlcd_type = nlcd_type_fact_fn(class)
+  ) %>% 
+  dplyr::filter(
+    as.character(nlcd_class) %>% toupper() %in% toupper(my_class_str)
+  ) %>% 
+  dplyr::pull(value) %>% 
+  sum()
+  )
+}
+
+np_temp <- c(4,8) %>% 
+  purrr::map(get_np_fn, my_class_str = c("evergreen forest"))
+
 ```
+
+<span style="color: teal;">
+The NLCD raster of Fort Collins contains **`r np_temp[[1]]`** patches of evergreen forest (based on NLCD classification) using a 4-neighborhood rule and **`r np_temp[[2]]`** patches of evergreen forest (based on NLCD classification) using a 8-neighborhood rule.
+</span>
+
 
 ## Question 5
 
