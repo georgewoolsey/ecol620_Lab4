@@ -182,9 +182,60 @@ nlcd_type_fact_fn <- function(class_int){
     )
   )
 }
+# FOR LAB type factor function to return ordered factor from class integer
+nlcd_labtype_fact_fn <- function(class_int){
+  return(ordered(class_int
+    , levels = c(41,42,43,21,22,23,24,81,82,71,72,73,74,31,51,52,90,95,11,12)
+    , labels = c(
+      "Forest"
+      , "Forest"
+      , "Forest"
+      , "Developed"
+      , "Developed"
+      , "Developed"
+      , "Developed"
+      , "Agriculture"
+      , "Agriculture"
+      , "Herbaceous"
+      , "Herbaceous"
+      , "Herbaceous"
+      , "Herbaceous"
+      , "Open"
+      , "Open"
+      , "Open"
+      , "Wetlands"
+      , "Wetlands"
+      , "Water"
+      , "Water"
+      )
+    )
+  )
+}
 # create color pallette based on classes in data
 fc_color_pal <- FedData::pal_nlcd() %>% 
   dplyr::filter(ID %in% unique(nlcd)[[1]]) %>% 
+  dplyr::pull(Color)
+fc_color_type_pal <-
+  FedData::pal_nlcd() %>% 
+  dplyr::filter(ID %in% unique(nlcd)[[1]]) %>% 
+  dplyr::mutate(type = nlcd_type_fact_fn(ID)) %>% 
+  dplyr::group_by(type) %>% 
+  dplyr::filter(
+    n() == 1
+    | (n() > 1 & dplyr::row_number() == 2)
+  ) %>% 
+  dplyr::arrange(type) %>% 
+  dplyr::pull(Color)
+fc_color_labtype_pal <-
+  FedData::pal_nlcd() %>% 
+  dplyr::filter(ID %in% unique(nlcd)[[1]]) %>% 
+  dplyr::mutate(type = nlcd_labtype_fact_fn(ID)) %>% 
+  dplyr::group_by(type) %>% 
+  dplyr::filter(
+    n() == 1
+    | (n() > 1 & dplyr::row_number() == 2)
+  ) %>% 
+  dplyr::arrange(type) %>% 
   dplyr::pull(Color)
 ```
 
@@ -209,7 +260,7 @@ nlcd_c_pland_temp <- landscapemetrics::lsm_c_pland(nlcd) %>%
         , y = reorder(nlcd_class, -class)
         , label = scales::percent(value, scale = 1, accuracy = .1)
       )
-      , color = "black", size = 2.5
+      , color = "black", size = 3.5
       , hjust = -0.1
     ) +
     scale_x_continuous(expand = expansion(mult = c(0, .1)), labels = scales::percent_format(scale = 1)) +
@@ -221,7 +272,7 @@ nlcd_c_pland_temp <- landscapemetrics::lsm_c_pland(nlcd) %>%
     theme(
       legend.position = "none"
       , axis.title = element_text(size = 8)
-      , axis.text.x = element_text(size = 8)
+      , axis.text.x = element_text(size = 9)
       , panel.grid.major.y = element_blank()
     )
 
@@ -238,26 +289,42 @@ Calculate the number of evergreen forest patches in the greater Fort Collins reg
 ```{r}
 get_np_fn <- function(my_dir_rule, my_class_str) {
   return(
-  landscapemetrics::lsm_c_np(nlcd, directions = my_dir_rule) %>% 
-  dplyr::mutate(
-    nlcd_class = nlcd_class_fact_fn(class)
-    , nlcd_type = nlcd_type_fact_fn(class)
-  ) %>% 
-  dplyr::filter(
-    as.character(nlcd_class) %>% toupper() %in% toupper(my_class_str)
-  ) %>% 
-  dplyr::pull(value) %>% 
-  sum()
+    landscapemetrics::lsm_c_np(nlcd, directions = my_dir_rule) %>% 
+    dplyr::mutate(
+      nlcd_class = nlcd_class_fact_fn(class)
+      , nlcd_type = nlcd_type_fact_fn(class)
+    ) %>% 
+    dplyr::filter(
+      as.character(nlcd_class) %>% toupper() %in% toupper(my_class_str)
+    ) %>% 
+    dplyr::mutate(
+      patch_direction_rule = paste0(my_dir_rule,"-neighborhood rule")
+    ) 
   )
 }
-
-np_temp <- c(4,8) %>% 
-  purrr::map(get_np_fn, my_class_str = c("evergreen forest"))
+# create table for answer
+c(4,8) %>% 
+  purrr::map_dfr(get_np_fn, my_class_str = c("evergreen forest")) %>% 
+  dplyr::select(nlcd_class, patch_direction_rule, value) %>% 
+  dplyr::arrange(nlcd_class, patch_direction_rule) %>% 
+  dplyr::mutate(value = value %>% scales::comma(accuracy = 1)) %>% 
+  kableExtra::kable(
+      format = "html" 
+      , caption = "Number of patches using different patch rules"
+      , escape = FALSE
+      , digits = 2
+      , col.names = c(
+        "NLCD Class"
+        , "Patch Rule"
+        , "# Patches"
+      )
+    ) %>% 
+    kable_styling(font_size = 11)
 
 ```
 
 <span style="color: teal;">
-The NLCD raster of Fort Collins contains **`r np_temp[[1]]`** patches of evergreen forest using a 4-neighborhood rule and **`r np_temp[[2]]`** patches of evergreen forest using a 8-neighborhood rule.
+The table above details the number of patches of evergreen forest using a 4-neighborhood rule and a 8-neighborhood rule based on the NLCD raster of Fort Collins.
 </span>
 
 
@@ -319,7 +386,7 @@ water_lsm_temp <- landscapemetrics::calculate_lsm(nlcd, level = "patch", directi
     ) %>% 
     dplyr::filter(!is.na(value)) %>% 
     dplyr::arrange(value) %>% 
-    # attach var descriptions
+    # attach patch metric variable descriptions
     dplyr::left_join(
       landscapemetrics::list_lsm() %>% dplyr::select(name, function_name) %>% rename(name1 = name)
       , by = c("var1" = "function_name")
@@ -328,13 +395,13 @@ water_lsm_temp <- landscapemetrics::calculate_lsm(nlcd, level = "patch", directi
       landscapemetrics::list_lsm() %>% dplyr::select(name, function_name) %>% rename(name2 = name)
       , by = c("var2" = "function_name")
     )
-  # print table
+  # create table for answer
   cor_matrix_df %>% 
     dplyr::slice_min(order_by = value, n = 3) %>% 
     dplyr::select(name1, name2, value) %>% 
     kableExtra::kable(
       format = "html" 
-      , caption = "<font size=-1>Top 3 negative correlations in patch-based metrics for NLCD class: open water</font>"
+      , caption = "Top 3 negative correlations in patch-based metrics<br>NLCD class: open water"
       , escape = FALSE
       , digits = 2
       , col.names = c(
@@ -346,6 +413,10 @@ water_lsm_temp <- landscapemetrics::calculate_lsm(nlcd, level = "patch", directi
     kable_styling(font_size = 11)
 ```
 
+<span style="color: teal;">
+The table above includes the top three open water patch-based metrics (using a 4-neighborhood rule) which have the strongest negative correlation.
+</span>
+
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
 remove(list = ls()[grep("_temp",ls())])
 gc()
@@ -356,7 +427,72 @@ gc()
 Generate a plot showing the relationship between the number of open water patches (using the 4-neighborhood rule) and grain size. Use 30m, 60m, 120m, 240, and 600m grain resolution. Use the modal rule and generate your plot using ggplot. (10 pts)
 
 ```{r}
-# use different aggregations
+# define function to return data on patches by class, grain, direction
+fn_agg_rst <- function(my_res, my_data, my_dir_rule) {
+  return(
+  if(my_res>terra::xres(my_data)[1]){
+    # aggregate raster
+      terra::aggregate(my_data
+        , fact = (my_res/terra::xres(my_data)[1]) 
+        , fun = "modal"
+      ) %>% 
+    # calculate number of patches
+      landscapemetrics::lsm_c_np(directions = my_dir_rule) %>% 
+    # add identifying vars
+      dplyr::mutate(
+        rast_resolution = my_res
+        , patch_direction_rule = my_dir_rule
+      )
+  }else{if(my_res==terra::xres(my_data)[1]){ # no need to agg. if at native res
+      my_data %>% 
+    # calculate number of patches
+      landscapemetrics::lsm_c_np(directions = my_dir_rule) %>% 
+    # add identifying vars
+      dplyr::mutate(
+        rast_resolution = my_res
+        , patch_direction_rule = my_dir_rule
+      )
+  }}
+  )
+}
+# create data frame of spatial variance vs grain using function defined above
+df_grain_patch <- c(30, 60, 120, 240, 600)  %>% # define sequence for factors
+  # map = apply a function to each element of a list
+  purrr::map_dfr(fn_agg_rst, my_data = nlcd, my_dir_rule = 4) %>% 
+  # create class factors
+  dplyr::mutate(
+    nlcd_class = nlcd_class_fact_fn(class)
+    , nlcd_type = nlcd_type_fact_fn(class)
+  )
+# plot
+df_grain_patch %>% 
+  dplyr::filter(
+    nlcd_class %>% toupper() == toupper("open water")
+  ) %>% 
+ggplot(.) +
+  geom_col(
+    mapping = aes(x = as.factor(rast_resolution), y = value)
+    , width = 0.7
+    , fill = FedData::pal_nlcd() %>% 
+        dplyr::filter(Class %>% toupper() %in% toupper("open water")) %>% 
+        dplyr::pull(Color)
+  ) +
+  geom_text(
+    mapping = aes(x = as.factor(rast_resolution), y = value, label = value)
+    , color = "black", size = 3.5
+    , vjust = -0.1
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0, .1))) +
+  labs(
+    y = "# open water patches"
+    , x = "raster grain size (m)"
+  ) +
+  theme_bw() +
+  theme(
+    legend.position = "none"
+    , axis.title = element_text(size = 9)
+    , panel.grid.major.x = element_blank()
+  )
 ```
 
 ---
@@ -372,8 +508,111 @@ Number of agriculture patches in the greater Fort Collins region using: 4-neighb
 ```{r}
 # see practice code
 # condense 15 cover types down to 6 cover types
+# get nlcd classes
+nlcd_classes <- levels(as.factor(nlcd))[[1]]
+nlcd_types <- nlcd_labtype_fact_fn(nlcd_classes %>% as.integer())
+#create reclassify matrix: first col: original; second: change to
+nlcd_reclass_matrix <- cbind(nlcd_classes, nlcd_types)
+#reclassify with classify function 
+nlcd_rast_type <- terra::classify(as.factor(nlcd), nlcd_reclass_matrix) 
+# aggregate patches
+get_np_fn <- function(my_dir_rule, my_type_str) {
+  return(
+    nlcd_rast_type %>%
+    landscapemetrics::lsm_c_np(directions = my_dir_rule) %>% 
+    dplyr::mutate(
+      nlcd_type = ordered(
+        class 
+        , levels = c(1:length(nlcd_types %>% unique))
+        , labels = nlcd_types %>% unique %>% sort
+      )
+    ) %>% 
+    dplyr::filter(
+      as.character(nlcd_type) %>% toupper() %in% toupper(my_type_str)
+    ) %>% 
+    dplyr::mutate(
+      patch_direction_rule = paste0(my_dir_rule,"-neighborhood rule")
+    ) 
+  )
+}
+# create table for answer
+c(4,8) %>% 
+  purrr::map_dfr(get_np_fn, my_type_str = c("agriculture")) %>% 
+  dplyr::select(nlcd_type, patch_direction_rule, value) %>% 
+  dplyr::arrange(nlcd_type, patch_direction_rule) %>% 
+  dplyr::mutate(value = value %>% scales::comma(accuracy = 1)) %>% 
+  kableExtra::kable(
+      format = "html" 
+      , caption = "Number of patches using different patch rules"
+      , escape = FALSE
+      , digits = 2
+      , col.names = c(
+        "Landcover Type"
+        , "Patch Rule"
+        , "# Patches"
+      )
+    ) %>% 
+    kable_styling(font_size = 11)
 ```
 
+<span style="color: teal;">
+The table above details the number of agricultural patches using a 4-neighborhood rule and a 8-neighborhood rule based on the NLCD raster of Fort Collins and a grouping of the NLCD classes into landcover type.
+</span>
+
+```{r, include=FALSE, eval=FALSE}
+nlcd %>% as.data.frame(xy = TRUE) %>% 
+  dplyr::rename(class=3) %>% 
+  dplyr::mutate(
+    nlcd_class = nlcd_class_fact_fn(class)
+    , nlcd_type = nlcd_type_fact_fn(class)
+  ) %>% 
+ggplot(data=.) +
+    geom_raster(mapping=aes(x=x, y=y, fill=nlcd_class)) + 
+    scale_fill_manual(values = fc_color_pal) +
+    scale_x_continuous(expand = c(0, 0)) +
+    scale_y_continuous(expand = c(0, 0)) +
+    # labs(title="Forest cover in 500m buffer of example survey site", fill = "is forest", x="", y="") +
+    theme_bw() +
+    theme(
+      legend.position = "top"
+      , legend.direction = "horizontal"
+      , legend.title = element_blank()
+      , legend.text = element_text(size = 6.5)
+      , legend.key.size = unit(0.5, "cm")
+      , legend.margin = margin(0,0,-8,0)
+      , axis.title = element_blank()
+      , axis.text = element_text(size = 6)
+    )
+####
+nlcd_rast_type %>% as.data.frame(xy = TRUE) %>% 
+  dplyr::rename(class=3) %>% 
+  dplyr::mutate(
+    nlcd_type = ordered(
+      class 
+      , levels = c(1:length(nlcd_types %>% unique))
+      , labels = nlcd_types %>% unique %>% sort
+    )
+  ) %>% 
+ggplot(data=.) +
+    geom_raster(mapping=aes(x=x, y=y, fill=nlcd_type)) + 
+    scale_fill_manual(
+      values = fc_color_labtype_pal
+    ) +
+    scale_x_continuous(expand = c(0, 0)) +
+    scale_y_continuous(expand = c(0, 0)) +
+    # labs(title="Forest cover in 500m buffer of example survey site", fill = "is forest", x="", y="") +
+    theme_bw() +
+    theme(
+      legend.position = "top"
+      , legend.direction = "horizontal"
+      , legend.title = element_blank()
+      , legend.text = element_text(size = 6.5)
+      , legend.key.size = unit(0.5, "cm")
+      , legend.margin = margin(0,0,-8,0)
+      , axis.title = element_blank()
+      , axis.text = element_text(size = 6)
+    )
+```
 
 ## Question 9
 
