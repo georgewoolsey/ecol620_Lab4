@@ -72,7 +72,7 @@ Briefly describe (1-2 sentences) what each of the following functions achieve. A
 
 * `lsm_l_shei` is from the `landscapemetrics` package and can be used to calculate Shannon's evenness index (a diversity metric) at the *landscape* level. Shannon's evenness index is calculated as the ratio between the actual Shannon's diversity index and and the theoretical maximum of the Shannon diversity index ($SHEI = 0$ when only one patch is present and $SHEI = 1$ when the proportion of classes is completely equally distributed).
 
-* `lsm_l_pd` is from the `landscapemetrics` package and can be used to calculate the patch density (an aggregation metric) at the *landscape* level. Patch density describes the fragmentation the landscape and is calculated as the number of patches ($N$) divided by the total landscape area ($A$ [e.g. in $\textrm{m}^2$]).
+* `lsm_l_pd` is from the `landscapemetrics` package and can be used to calculate the patch density (an aggregation metric) at the *landscape* level. Patch density describes the fragmentation the landscape and is calculated as the number of patches ($N$) divided by the total landscape area ($A$ [e.g. in m^2^]).
 
 ```{r, eval=FALSE, include=FALSE}
 # patch-based metrics are calculated at the patch level (individual patches)
@@ -257,7 +257,7 @@ np_temp <- c(4,8) %>%
 ```
 
 <span style="color: teal;">
-The NLCD raster of Fort Collins contains **`r np_temp[[1]]`** patches of evergreen forest (based on NLCD classification) using a 4-neighborhood rule and **`r np_temp[[2]]`** patches of evergreen forest (based on NLCD classification) using a 8-neighborhood rule.
+The NLCD raster of Fort Collins contains **`r np_temp[[1]]`** patches of evergreen forest using a 4-neighborhood rule and **`r np_temp[[2]]`** patches of evergreen forest using a 8-neighborhood rule.
 </span>
 
 
@@ -267,19 +267,89 @@ What is the mean pasture/hay patch size in hectare and km2 (using the 4-neighbor
 
 ```{r}
 # native units is ha
-# lsm_c_area_mn()
+areamn_temp <- landscapemetrics::lsm_c_area_mn(nlcd, directions = 4) %>% 
+  dplyr::mutate(
+    nlcd_class = nlcd_class_fact_fn(class)
+    , nlcd_type = nlcd_type_fact_fn(class)
+  ) %>% 
+  dplyr::filter(
+    as.character(nlcd_class) %>% toupper() %in% toupper("pasture/hay")
+  ) %>% 
+  dplyr::pull(value)
 ```
+
+<span style="color: teal;">
+The mean patch size of pasture/hay patches in the NLCD raster of Fort Collins is **`r areamn_temp %>% round(1)`** ha (**`r (areamn_temp / 100) %>% round(3)`** km^2^).
+</span>
 
 ## Question 6
 
 Of the open water patch-based metrics (using the 4-neighborhood rule), which have the strongest negative correlations? Include the top-three pairings. (3 pts) 
 
-```{r}
-# list the top 3 most negative
-# write out what these are so that we know what the strongest is
-# lsm_p_frac()
+```{r, results='asis'}
+# get landscape metrics in data frame
+water_lsm_temp <- landscapemetrics::calculate_lsm(nlcd, level = "patch", directions = 4, full_name = TRUE) %>% 
+  dplyr::mutate(
+    nlcd_class = nlcd_class_fact_fn(class)
+    , nlcd_type = nlcd_type_fact_fn(class)
+  ) %>% 
+  dplyr::filter(
+    as.character(nlcd_class) %>% toupper() %in% toupper("open water")
+  ) %>% 
+  dplyr::select(id, function_name, value, nlcd_class) %>% 
+  # pivot wider
+  tidyr::pivot_wider(
+    names_from = function_name
+    , values_from = value
+  )
+# calculate correlation matrix
+  cor_matrix <- water_lsm_temp %>% 
+    dplyr::select(-c(id, nlcd_class)) %>% 
+    cor()
+  # keep lower triangle
+  cor_matrix[!lower.tri(cor_matrix, diag = FALSE)] <- NA
+  cor_matrix <- cor_matrix[2:nrow(cor_matrix), 1:ncol(cor_matrix)-1]
+  # create data frame of correlation matrix
+  cor_matrix_df <- cor_matrix %>% 
+    as.data.frame() %>% 
+    tibble::rownames_to_column(var = "var1") %>% 
+    tidyr::pivot_longer(
+      cols = c(-var1)
+      , names_to = "var2"
+    ) %>% 
+    dplyr::filter(!is.na(value)) %>% 
+    dplyr::arrange(value) %>% 
+    # attach var descriptions
+    dplyr::left_join(
+      landscapemetrics::list_lsm() %>% dplyr::select(name, function_name) %>% rename(name1 = name)
+      , by = c("var1" = "function_name")
+    ) %>% 
+    dplyr::left_join(
+      landscapemetrics::list_lsm() %>% dplyr::select(name, function_name) %>% rename(name2 = name)
+      , by = c("var2" = "function_name")
+    )
+  # print table
+  cor_matrix_df %>% 
+    dplyr::slice_min(order_by = value, n = 3) %>% 
+    dplyr::select(name1, name2, value) %>% 
+    kableExtra::kable(
+      format = "html" 
+      , caption = "<font size=-1>Top 3 negative correlations in patch-based metrics for NLCD class: open water</font>"
+      , escape = FALSE
+      , digits = 2
+      , col.names = c(
+        "Metric 1"
+        , "Metric 2"
+        , "Pearson Corr. Coeff."
+      )
+    ) %>% 
+    kable_styling(font_size = 11)
 ```
 
+```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+remove(list = ls()[grep("_temp",ls())])
+gc()
+```
 
 ## Question 7
 
