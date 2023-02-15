@@ -312,14 +312,13 @@ c(4,8) %>%
       format = "html" 
       , caption = "Number of patches using different patch rules"
       , escape = FALSE
-      , digits = 2
       , col.names = c(
         "NLCD Class"
         , "Patch Rule"
         , "# Patches"
       )
     ) %>% 
-    kable_styling(font_size = 11)
+    kable_styling(font_size = 12)
 
 ```
 
@@ -410,7 +409,7 @@ water_lsm_temp <- landscapemetrics::calculate_lsm(nlcd, level = "patch", directi
         , "Pearson Corr. Coeff."
       )
     ) %>% 
-    kable_styling(font_size = 11)
+    kable_styling(font_size = 12)
 ```
 
 <span style="color: teal;">
@@ -506,10 +505,9 @@ For questions 8-10, reclassify “fort_collins.tif” to the scheme outlined on 
 Number of agriculture patches in the greater Fort Collins region using: 4-neighborhood rule & 8-neighborhood rule: (4.5 pts) 
 
 ```{r}
-# see practice code
-# condense 15 cover types down to 6 cover types
 # get nlcd classes
 nlcd_classes <- levels(as.factor(nlcd))[[1]]
+# get nlcd types based on classes
 nlcd_types <- nlcd_labtype_fact_fn(nlcd_classes %>% as.integer())
 #create reclassify matrix: first col: original; second: change to
 nlcd_reclass_matrix <- cbind(nlcd_classes, nlcd_types)
@@ -545,14 +543,13 @@ c(4,8) %>%
       format = "html" 
       , caption = "Number of patches using different patch rules"
       , escape = FALSE
-      , digits = 2
       , col.names = c(
         "Landcover Type"
         , "Patch Rule"
         , "# Patches"
       )
     ) %>% 
-    kable_styling(font_size = 11)
+    kable_styling(font_size = 12)
 ```
 
 <span style="color: teal;">
@@ -619,15 +616,61 @@ ggplot(data=.) +
 Calculate the mean Euclidean nearest neighbor distance of agriculture patches (Using the 4-neighborhood rule): (3 pts)
 
 ```{r}
-
+# Calculate the mean Euclidean nearest neighbor distance
+nlcd_rast_type %>% landscapemetrics::lsm_p_enn(directions = 4) %>% 
+  dplyr::mutate(nlcd_type = ordered(
+        class 
+        , levels = c(1:length(nlcd_types %>% unique))
+        , labels = nlcd_types %>% unique %>% sort
+      )
+      , patch_direction_rule = paste0(4,"-neighborhood rule")
+  ) %>% 
+  dplyr::group_by(
+    nlcd_type, patch_direction_rule
+  ) %>% 
+  dplyr::summarise(
+    mean_value = mean(value, na.rm = TRUE)
+  ) %>% 
+  dplyr::filter(
+      as.character(nlcd_type) %>% toupper() %in% toupper("Agriculture")
+  ) %>% 
+  kableExtra::kable(
+    format = "html" 
+    , caption = "Distance to the nearest neighboring patch of the same class<br>Euclidean Nearest-Neighbor Distance"
+    , escape = FALSE
+    , digits = 2
+    , col.names = c(
+      "Landcover Type"
+      , "Patch Rule"
+      , "Mean Nearest-Neighbor Distance (m)"
+    )
+  ) %>% 
+  kable_styling(font_size = 12)
 ```
+
+<span style="color: teal;">
+The table above details the mean distance to the nearest neighboring patch of the same class (i.e. Euclidean Nearest-Neighbor Distance) for agricultural patches using a 4-neighborhood rule based on the NLCD raster of Fort Collins and a grouping of the NLCD classes into landcover type.
+</span>
+
 
 ## Question 10
 
 Include a plot (using the landscape metrics package, e.g., show_lsm) of developed and open water landcover types showing the area in hectares (Using the 4-neighborhood rule). (2 pts)
 
-```{r}
-
+```{r, results='hide'}
+filter_nlcd_types <- (nlcd_types %>% unique %>% sort)[
+  (nlcd_types %>% unique %>% sort)  
+    %in% c("Developed", "Water")] %>% 
+  as.numeric()
+# plot
+landscapemetrics::show_lsm(
+  nlcd_rast_type
+  , what = "lsm_p_area"
+  , direction = 4
+  , class = filter_nlcd_types
+  , label_lsm = FALSE
+  , labels = FALSE
+) 
 ```
 
 ---
@@ -651,6 +694,8 @@ Shannon diversity:(3.5 pts)
 ```{r}
 # landscape level
 ```
+
+how proportional are each of the landcover types in this extent?
 
 ## Question 13
 
