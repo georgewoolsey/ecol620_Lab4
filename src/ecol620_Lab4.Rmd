@@ -40,12 +40,8 @@ library(viridis)
 library(scales)
 library(latex2exp)
 # visualization
-library(ggrepel)
-library(cowplot)
 library(kableExtra)
 # spatial analysis
-library(USAboundaries)
-library(sf)
 library(terra)
 library(landscapemetrics) #for patch, class, and landscape metrics
 library(FedData) #for nlcd color pallette
@@ -494,6 +490,11 @@ ggplot(.) +
   )
 ```
 
+```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+remove(list = ls()[grep("_temp",ls())])
+gc()
+```
+
 ---
 
 # Part 2
@@ -673,6 +674,15 @@ landscapemetrics::show_lsm(
 ) 
 ```
 
+<span style="color: teal;">
+The figure above shows all patches of land classified as developed (class 2) and water (class 7) with a fill corresponding to the value of patch area (ha). This plot was produced using `landscapemetrics::show_lsm` with the patch-level metric parameter set to `lsm_p_area`.
+</span>
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+remove(list = ls()[grep("_temp",ls())])
+gc()
+```
+
 ---
 
 # Part 3
@@ -685,7 +695,13 @@ Land-cover richness: (2 pts)
 
 ```{r}
 # landscape level
+richness_temp <- nlcd %>% landscapemetrics::lsm_l_pr() %>% dplyr::pull(value)
+ # == nlcd %>% values() %>% unique() %>% length()
 ```
+
+<span style="color: teal;">
+The NLCD raster of Fort Collins has a land cover richness of **`r richness_temp`**. Land cover richness is simply a count of the number of classes (land cover types) in a given area. It is not comparable across landscapes with different total area.
+</span>
 
 ## Question 12
 
@@ -693,9 +709,20 @@ Shannon diversity:(3.5 pts)
 
 ```{r}
 # landscape level
+shdi_temp <- nlcd %>% landscapemetrics::lsm_l_shdi() %>% dplyr::pull(value) %>% round(2)
 ```
 
-how proportional are each of the landcover types in this extent?
+<span style="color: teal;">
+The NLCD raster of Fort Collins has a Shannon's diversity index (SHDI) of **`r shdi_temp`**. Shannon's diversity index is a meaure of the proportionality of landcover types in a given area. Shannon's diversity index increases as the richness and the evenness of land cover increases (SHDI = 0 when only one patch is present). The theoretical maximum of the SHDI = $\ln(m)$ where $m$ is the number of classes.
+</span>
+
+SHDI is represented by:
+
+$$
+SHDI = -1 \times \sum_{i = 1}^{m} \bigl(p_{i} \times \ln(p_{i}) \bigr)
+$$
+
+where $m$ is the number of classes and $p_i$ is the proportion of class $i$.
 
 ## Question 13
 
@@ -703,5 +730,16 @@ Shannon evenness: (3.5 pts)
 
 ```{r}
 # landscape level
+shei_temp <- nlcd %>% landscapemetrics::lsm_l_shei() %>% dplyr::pull(value) %>% round(2)
 ```
 
+<span style="color: teal;">
+The NLCD raster of Fort Collins has a Shannon's evenness index (SHEI) of **`r shei_temp`**. Shannon's evenness index is a meaure of the dominance of landcover in a given area. It is the ratio between Shannon’s diversity index (SHDI) and and the theoretical maximum of SHDI. As such, Shannon's evenness index is constrained between 0 and 1. As the eveness of patch distribution increases, SHEI approaches 1 (SHEI = 1 under complete equal distribution of patches; SHEI = 0 when only one patch is present). SHEI is represented by:
+</span>
+
+
+$$
+SHEI = \frac{SHDI}{\ln(m)} = \frac{-1 \times \sum_{i = 1}^{m} \bigl(p_{i} \times \ln(p_{i}) \bigr)} {\ln(m)}
+$$
+
+where $m$ is the number of classes and $p_i$ is the proportion of class $i$.
